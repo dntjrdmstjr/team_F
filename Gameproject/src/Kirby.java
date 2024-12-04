@@ -43,7 +43,7 @@ public class Kirby {
             
             // 걷기 애니메이션 스프라이트 위치
             int walkStartX = 254;     // 걷기 스프라이트 시작 X 좌표
-            int walkStartY = 11;     // 걷기 스프라이트 시작 Y 좌표
+            int walkStartY = 8;     // 걷기 스프라이트 시작 Y 좌표
             
             // 대기 스프라이트 위치
             int idleX = 8;    // 대기 스프라이트 X 좌표
