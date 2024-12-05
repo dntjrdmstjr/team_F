@@ -25,6 +25,7 @@ public class Kirby {
     private int currentFrame = 0;
     private int frameDelay = 0;
     private static final int FRAME_DELAY_RATE = 5;  // 프레임 변경 속도
+    private BufferedImage[] inhaleSprites;  // 클래스 필드에 추가
     
     public Kirby(int startX, int startY) {
         this.x = startX;
@@ -35,7 +36,8 @@ public class Kirby {
     private void loadSprites() {
         try {
             spriteSheet = ImageIO.read(new File("img/kirby.png"));
-            walkSprites = new BufferedImage[4];
+            walkSprites = new BufferedImage[10];
+            inhaleSprites = new BufferedImage[2];  // 흡입 스프라이트 배열 추가
             
             // 스프라이트 위치와 크기 지정
             int spriteWidth = 22;   // 실제 스프라이트의 너비
@@ -49,8 +51,12 @@ public class Kirby {
             int idleX = 8;    // 대기 스프라이트 X 좌표
             int idleY = 8;     // 대기 스프라이트 Y 좌표
             
+            // 흡입 스프라이트 위치
+            int inhaleStartX = 40;  // 실제 스프라이트 시트의 흡입 모션 X 좌표로 수정 필요
+            int inhaleStartY = 8;   // 실제 스프라이트 시트의 흡입 모션 Y 좌표로 수정 필요
+            
             // 걷기 스프라이트 추출
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 10; i++) {
                 walkSprites[i] = spriteSheet.getSubimage(
                     walkStartX + (i * spriteWidth),
                     walkStartY,
@@ -61,6 +67,16 @@ public class Kirby {
             
             // 대기 스프라이트 추출 (단일 이미지)
             idleSprite = spriteSheet.getSubimage(idleX, idleY, spriteWidth, spriteHeight);
+            
+         // 흡입 스프라이트 추출
+            for (int i = 0; i < 2; i++) {
+                inhaleSprites[i] = spriteSheet.getSubimage(
+                    inhaleStartX + (i * spriteWidth),
+                    inhaleStartY,
+                    spriteWidth,
+                    spriteHeight
+                );
+            }
             
         } catch (IOException e) {
             System.out.println("스프라이트를 로드할 수 없습니다: " + e.getMessage());
@@ -186,7 +202,9 @@ public class Kirby {
         
         // 스프라이트 그리기
         BufferedImage currentSprite;
-        if (isMovingLeft || isMovingRight) {
+        if (isInhaling) {
+            currentSprite = inhaleSprites[currentFrame % 2];  // 흡입 애니메이션
+        } else if (isMovingLeft || isMovingRight) {
             currentSprite = walkSprites[currentFrame];
         } else {
             currentSprite = idleSprite;
@@ -201,12 +219,7 @@ public class Kirby {
         
         // 흡입 효과
         if (isInhaling) {
-            g.setColor(new Color(255, 255, 255, 100));
-            if (facingRight) {
-                g.fillOval((int)x + size, (int)y, 30, 50);
-            } else {
-                g.fillOval((int)x - 30, (int)y, 30, 50);
-            }
+        	drawInhaleEffect(g);
         }
         
         // 상태 표시 (HP바, 능력 등)
@@ -257,4 +270,27 @@ public class Kirby {
     public void setMovingRight(boolean moving) {
         isMovingRight = moving;
     }
+    
+    private void drawInhaleEffect(Graphics g) {
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+        
+        if (facingRight) {
+            for (int i = 1; i <= 5; i++) {
+                int width = 30 - i * 4;
+                int height = 40 - i * 4;
+                g2d.setColor(new Color(255, 255, 255, 200 - i * 30));
+                g2d.fillOval((int)x + size + i * 10, (int)y + 5, width, height);
+            }
+        } else {
+            for (int i = 1; i <= 5; i++) {
+                int width = 30 - i * 4;
+                int height = 40 - i * 4;
+                g2d.setColor(new Color(255, 255, 255, 200 - i * 30));
+                g2d.fillOval((int)x - 30 - i * 10, (int)y + 5, width, height);
+            }
+        }
+        g2d.dispose();
+    }
 } 
+ 
