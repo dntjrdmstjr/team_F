@@ -7,18 +7,53 @@ public class Enemy {
     private int size = 40;
     private String type;  // 적의 타입 (능력을 결정)
     private boolean isAlive = true;
+    private boolean verticalMovement = false;  // 수직 이동 여부
+    private int verticalRange = 100;          // 수직 이동 범위
+    private int initialY;                     // 초기 Y 위치
+    private double angle=0;
     
     public Enemy(int x, int y, String type) {
+    	this(x, y, type, false);
+    	
+    	if(type.equals("DARK")) {
+    		this.verticalMovement = true;
+    		this.velocityX=3;
+    		this.verticalRange=150;
+    	}
+    }
+    
+    public Enemy(int x, int y, String type, boolean verticlaMovement) {
         this.x = x;
         this.y = y;
         this.type = type;
+        this.verticalMovement=verticalMovement;
+        this.initialY = y;
     }
     
     public void update() {
-        // 좌우로 움직이는 패턴
-        x += velocityX;
-        if (x <= 0 || x >= GameStart.SCREEN_WIDTH - size) {
-            velocityX *= -1;
+        if (!isAlive) return;
+        if (verticalMovement) {
+            y = initialY + (int)(Math.sin(angle) * verticalRange);  // 사인파 이동
+            angle += 0.05;  // 각도 증가
+            if (angle > Math.PI * 2) angle = 0;  // 각도 초기화
+        } else {
+            x += velocityX;
+            if (x <= 0 || x >= GameStart.SCREEN_WIDTH - size) {
+                velocityX *= -1;  // 좌우 반전
+            }
+        }
+    
+
+        if (verticalMovement) {
+            y += velocityX;  // velocityX를 Y 방향 속도로 사용
+            if (y <= initialY - verticalRange || y >= initialY + verticalRange) {
+                velocityX *= -1;  // 위아래 반전
+            }
+        } else {
+            x += velocityX;
+            if (x <= 0 || x >= GameStart.SCREEN_WIDTH - size) {
+                velocityX *= -1;  // 좌우 반전
+            }
         }
     }
     
@@ -32,6 +67,9 @@ public class Enemy {
             case "ICE":
                 g.setColor(Color.CYAN);
                 break;
+            case "DARK":
+            	g.setColor(Color.BLACK);
+            	break;
             default:
                 g.setColor(Color.GRAY);
         }
@@ -57,6 +95,7 @@ public class Enemy {
     public void defeat() {
         isAlive = false;
     }
+    
     
     public void takeDamage(int damage) {
         hp -= damage;

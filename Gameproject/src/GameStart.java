@@ -12,6 +12,7 @@ public class GameStart extends JFrame {
     public static ArrayList<Platform> platforms = new ArrayList<>();
     private ArrayList<Enemy> enemies = new ArrayList<>();
     private int score = 0;
+    private int currentStage=1;
     
     public GameStart() {
         System.out.println("GameMain 초기화 중...");  // 실행 확인용
@@ -31,6 +32,7 @@ public class GameStart extends JFrame {
         // 적 초기화
         enemies.add(new Enemy(400, 300, "FIRE"));
         enemies.add(new Enemy(700, 200, "ICE"));
+        enemies.add(new Enemy(200, 400, "DARK"));
         
         // 게임 패널 설정
         gamePanel = new GamePanel();
@@ -117,20 +119,171 @@ public class GameStart extends JFrame {
     private void updateGame() {
         player.update();
         
+        if(!player.isAlive()) {
+        	gameTimer.stop();
+        	showGameOverDialog();
+        	return;
+        }
+        
+        
         // 적 업데이트
+        enemies.removeIf(enemy -> !enemy.isAlive());
         for (Enemy enemy : enemies) {
             enemy.update();
             // 충돌 체크
+            
             if (player.getBounds().intersects(enemy.getBounds())) {
                 if (player.isInhaling()) {
+                	//흡입 중이라면
                     player.copyAbility(enemy);
-                    score += 100;
-                }
+                    score += 100;  
+                }else {
+                	//흡입 중이 아니라면               
+                	player.takeDamage(10);
+                	System.out.println("Current HP"+player.getHp());
+                	
+                }           
+                
             }
+        }
+        if (enemies.isEmpty()) {
+            nextStage();  // 다음 스테이지로 진행
         }
         
         gamePanel.repaint();
     }
+    private void showGameOverDialog() {
+        // 종료 창 생성
+        JFrame gameOverFrame = new JFrame("Game Over");
+        gameOverFrame.setSize(400, 300);
+        gameOverFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        gameOverFrame.setLayout(new BorderLayout());
+
+        // 메시지 패널
+        JPanel messagePanel = new JPanel();
+        messagePanel.setLayout(new GridLayout(2, 1));
+        JLabel messageLabel = new JLabel("Game Over!", SwingConstants.CENTER);
+        JLabel scoreLabel = new JLabel("Your Score: " + score, SwingConstants.CENTER);
+        messageLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 18));
+        messagePanel.add(messageLabel);
+        messagePanel.add(scoreLabel);
+
+        // 버튼 패널
+        JPanel buttonPanel = new JPanel();
+        JButton restartButton = new JButton("Restart Game");
+        JButton exitButton = new JButton("Exit");
+        buttonPanel.add(restartButton);
+        buttonPanel.add(exitButton);
+
+        // 버튼 동작 설정
+        restartButton.addActionListener(e -> {
+            gameOverFrame.dispose();  // 창 닫기
+            restartGame();  // 게임 재시작
+        });
+
+        exitButton.addActionListener(e -> System.exit(0));  // 프로그램 종료
+
+        // 창에 추가
+        gameOverFrame.add(messagePanel, BorderLayout.CENTER);
+        gameOverFrame.add(buttonPanel, BorderLayout.SOUTH);
+
+        gameOverFrame.setLocationRelativeTo(null);  // 화면 중앙에 표시
+        gameOverFrame.setVisible(true);
+    }
+    private void restartGame() {
+        // 초기화된 상태로 새 게임 시작
+        this.dispose();  // 현재 창 닫기
+        SwingUtilities.invokeLater(() -> {
+            GameStart newGame = new GameStart();
+            newGame.setVisible(true);
+        });
+    }
+    private void nextStage() {
+        // 적 리스트와 Kirby 초기화
+        enemies.clear();  
+        platforms.clear();  
+
+        // 다음 스테이지 데이터 설정
+        setupStage(currentStage + 1);  
+        currentStage++;  
+        System.out.println("Proceeding to Stage: " + currentStage);
+    }
+    private void setupStage(int stageNumber) {
+        switch (stageNumber) {
+            case 1:
+                // 스테이지 1 설정
+                platforms.add(new Platform(300, 500, 200, 20));
+                platforms.add(new Platform(600, 400, 200, 20));
+                enemies.add(new Enemy(400, 300, "FIRE"));
+                enemies.add(new Enemy(700, 200, "ICE"));
+                break;
+
+            case 2:
+                // 스테이지 2 설정
+                platforms.add(new Platform(200, 450, 250, 20));
+                platforms.add(new Platform(500, 350, 250, 20));
+                platforms.add(new Platform(800, 500, 150, 20));
+                enemies.add(new Enemy(300, 200, "DARK"));
+                enemies.add(new Enemy(700, 150, "ICE", true));
+                enemies.add(new Enemy(900, 300, "FIRE"));
+                break;
+
+            case 3:
+                // 스테이지 3 설정
+                platforms.add(new Platform(150, 500, 150, 20));
+                platforms.add(new Platform(450, 400, 300, 20));
+                enemies.add(new Enemy(300, 200, "FIRE", true));
+                enemies.add(new Enemy(600, 300, "DARK"));
+                break;
+
+            default:
+                // 마지막 스테이지 클리어
+                showGameClearDialog();  // 게임 클리어 창 표시
+                break;
+        }
+    }
+    private void showGameClearDialog() {
+        JFrame gameClearFrame = new JFrame("Game Clear!");
+        gameClearFrame.setSize(400, 300);
+        gameClearFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        gameClearFrame.setLayout(new BorderLayout());
+
+        // 메시지 패널
+        JPanel messagePanel = new JPanel();
+        messagePanel.setLayout(new GridLayout(2, 1));
+        JLabel messageLabel = new JLabel("Congratulations! You cleared the game!", SwingConstants.CENTER);
+        JLabel scoreLabel = new JLabel("Your Score: " + score, SwingConstants.CENTER);
+        messageLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        scoreLabel.setFont(new Font("Arial", Font.PLAIN, 16));
+        messagePanel.add(messageLabel);
+        messagePanel.add(scoreLabel);
+
+        // 버튼 패널
+        JPanel buttonPanel = new JPanel();
+        JButton restartButton = new JButton("Restart Game");
+        JButton exitButton = new JButton("Exit");
+        buttonPanel.add(restartButton);
+        buttonPanel.add(exitButton);
+
+        // 버튼 동작 설정
+        restartButton.addActionListener(e -> {
+            gameClearFrame.dispose();
+            restartGame();
+        });
+
+        exitButton.addActionListener(e -> System.exit(0));
+
+        gameClearFrame.add(messagePanel, BorderLayout.CENTER);
+        gameClearFrame.add(buttonPanel, BorderLayout.SOUTH);
+        gameClearFrame.setLocationRelativeTo(null);
+        gameClearFrame.setVisible(true);
+    }
+
+
+
+
+
     
     public static void main(String[] args) {
         System.out.println("게임 시작...");  // 실행 확인용
