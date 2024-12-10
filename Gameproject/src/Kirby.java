@@ -31,6 +31,7 @@ public class Kirby {
     private boolean isStartingInhale = false;  // 흡입 시작 여부
     private int inhaleDelay = 0;
     
+    
     public Kirby(int startX, int startY) {
         this.x = startX;
         this.y = startY;
@@ -236,6 +237,8 @@ public class Kirby {
                 break;
         }
     }
+  
+
     
     public void draw(Graphics g) {
         if (spriteSheet == null) {
@@ -305,7 +308,9 @@ public class Kirby {
     public boolean isInhaling() {
         return isInhaling;
     }
-    
+    public boolean isAlive() {
+    	return hp >0;
+    }
     public void setMovingLeft(boolean moving) {
         isMovingLeft = moving;
     }
@@ -313,6 +318,18 @@ public class Kirby {
     public void setMovingRight(boolean moving) {
         isMovingRight = moving;
     }
+    public void takeDamage(int damage) {
+        hp -= damage;
+        if (hp <= 0) {
+            hp = 0;  // 체력이 0 이하로 내려가지 않도록 처리
+            System.out.println("Kirby has been defeated!");
+            // 게임 오버 처리 로직을 여기에 추가 가능
+        }
+    }
+    public int getHp() {
+        return hp;
+    }
+
     
     private void drawInhaleEffect(Graphics g) {
         Graphics2D g2d = (Graphics2D) g.create();
