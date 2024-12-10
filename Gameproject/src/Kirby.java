@@ -26,6 +26,10 @@ public class Kirby {
     private int frameDelay = 0;
     private static final int FRAME_DELAY_RATE = 5;  // 프레임 변경 속도
     private BufferedImage[] inhaleSprites;  // 클래스 필드에 추가
+    private int inhaleFrame = 0;
+    private static final int INHALE_FRAME_RATE = 4;  // 흡입 애니메이션 속도 조절
+    private boolean isStartingInhale = false;  // 흡입 시작 여부
+    private int inhaleDelay = 0;
     
     public Kirby(int startX, int startY) {
         this.x = startX;
@@ -33,48 +37,66 @@ public class Kirby {
         loadSprites();
     }
     
+    private class SpriteInfo {
+        int x, y, width, height;
+        
+        SpriteInfo(int x, int y, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+        }
+    }
+    
     private void loadSprites() {
         try {
             spriteSheet = ImageIO.read(new File("img/kirby.png"));
-            walkSprites = new BufferedImage[10];
-            inhaleSprites = new BufferedImage[2];  // 흡입 스프라이트 배열 추가
+            walkSprites = new BufferedImage[9];
+            inhaleSprites = new BufferedImage[6];  // 흡입 스프라이트 배열 추가
             
-            // 스프라이트 위치와 크기 지정
-            int spriteWidth = 22;   // 실제 스프라이트의 너비
-            int spriteHeight = 20;  // 실제 스프라이트의 높이
+         // 각 스프라이트의 위치와 크기 정보 설정
+            SpriteInfo[] walkInfo = {
+                new SpriteInfo(254, 9, 20, 19),  // 걷기 1
+                new SpriteInfo(274, 9, 23, 19),  // 걷기 2
+                new SpriteInfo(319, 11, 21, 17),  // 걷기 3
+                new SpriteInfo(340, 10, 19, 18),  // 걷기 4
+                new SpriteInfo(359, 10, 19, 18),  // 걷기 5
+                new SpriteInfo(379, 8, 23, 20),  // 걷기 6
+                new SpriteInfo(402, 8, 22, 20),  // 걷기 7
+                new SpriteInfo(424, 11, 21, 17),  // 걷기 8
+                new SpriteInfo(446, 10, 20, 18),  // 걷기 9
+            };
             
-            // 걷기 애니메이션 스프라이트 위치
-            int walkStartX = 253;     // 걷기 스프라이트 시작 X 좌표
-            int walkStartY = 8;     // 걷기 스프라이트 시작 Y 좌표
+            SpriteInfo[] inhaleInfo = {
+                new SpriteInfo(772, 179, 21, 21),    // 흡입 1 (더 큰 크기)
+                new SpriteInfo(748, 177, 22, 23),    // 흡입 2 (다른 크기)
+                new SpriteInfo(794, 178, 25, 22),    // 흡입 3
+                new SpriteInfo(820, 177, 23, 23),    // 흡입 4
+                new SpriteInfo(844, 179, 24, 22),    // 흡입 5
+                new SpriteInfo(868, 177, 24, 23),    // 흡입 6
+            };
             
-            // 대기 스프라이트 위치
-            int idleX = 8;    // 대기 스프라이트 X 좌표
-            int idleY = 8;     // 대기 스프라이트 Y 좌표
+            // 대기 스프라이트 정보
+            SpriteInfo idleInfo = new SpriteInfo(8, 8, 20, 20);
             
-            // 흡입 스프라이트 위치
-            int inhaleStartX = 40;  // 실제 스프라이트 시트의 흡입 모션 X 좌표로 수정 필요
-            int inhaleStartY = 8;   // 실제 스프라이트 시트의 흡입 모션 Y 좌표로 수정 필요
-            
-            // 걷기 스프라이트 추출
-            for (int i = 0; i < 10; i++) {
+         // 걷기 스프라이트 추출
+            for (int i = 0; i < walkSprites.length; i++) {
+                SpriteInfo info = walkInfo[i];
                 walkSprites[i] = spriteSheet.getSubimage(
-                    walkStartX + (i * spriteWidth),
-                    walkStartY,
-                    spriteWidth,
-                    spriteHeight
+                    info.x, info.y, info.width, info.height
                 );
             }
             
-            // 대기 스프라이트 추출 (단일 이미지)
-            idleSprite = spriteSheet.getSubimage(idleX, idleY, spriteWidth, spriteHeight);
+            // 대기 스프라이트 추출
+            idleSprite = spriteSheet.getSubimage(
+                idleInfo.x, idleInfo.y, idleInfo.width, idleInfo.height
+            );
             
-         // 흡입 스프라이트 추출
-            for (int i = 0; i < 2; i++) {
+            // 흡입 스프라이트 추출
+            for (int i = 0; i < inhaleSprites.length; i++) {
+                SpriteInfo info = inhaleInfo[i];
                 inhaleSprites[i] = spriteSheet.getSubimage(
-                    inhaleStartX + (i * spriteWidth),
-                    inhaleStartY,
-                    spriteWidth,
-                    spriteHeight
+                    info.x, info.y, info.width, info.height
                 );
             }
             
@@ -128,15 +150,36 @@ public class Kirby {
             }
         }
         
-        // 애니메이션 프레임 업데이트
-        if (isMovingLeft || isMovingRight) {  // 움직일 때만 프레임 업데이트
+     // 애니메이션 프레임 업데이트
+        if (isInhaling) {
+            inhaleDelay++;
+            if (inhaleDelay >= INHALE_FRAME_RATE) {
+                inhaleDelay = 0;
+                if (isStartingInhale) {
+                    // 시작 애니메이션 
+                    inhaleFrame++;
+                    if (inhaleFrame >= 3) {  // 처음 3프레임이 끝나면
+                        isStartingInhale = false;
+                        inhaleFrame = 4;  // 4번 프레임부터 반복 시작
+                    }
+                } else {
+                    // 4,5번 프레임만 반복
+                    inhaleFrame = (inhaleFrame == 4) ? 5 : 4;
+                }
+            }
+        } else {
+            inhaleFrame = 0;
+        }
+        
+        // 걷기 애니메이션 업데이트
+        if (isMovingLeft || isMovingRight) {
             frameDelay++;
             if (frameDelay >= FRAME_DELAY_RATE) {
                 frameDelay = 0;
-                currentFrame = (currentFrame + 1) % 4;
+                currentFrame = (currentFrame + 1) % 9;
             }
         } else {
-            currentFrame = 0;  // 멈춰있을 때는 첫 프레임으로
+            currentFrame = 0;
         }
     }
     
@@ -203,7 +246,7 @@ public class Kirby {
         // 스프라이트 그리기
         BufferedImage currentSprite;
         if (isInhaling) {
-            currentSprite = inhaleSprites[currentFrame % 2];  // 흡입 애니메이션
+            currentSprite = inhaleSprites[inhaleFrame];  // 별도의 흡입 프레임 사용
         } else if (isMovingLeft || isMovingRight) {
             currentSprite = walkSprites[currentFrame];
         } else {
