@@ -21,6 +21,14 @@ public class Enemy {
     		this.verticalRange=150;
     	}
     }
+    public int getX() {
+        return (int) x; // 적의 X 좌표를 반환
+    }
+
+    public int getY() {
+        return (int) y; // 적의 Y 좌표를 반환
+    }
+
     
     public Enemy(int x, int y, String type, boolean verticlaMovement) {
         this.x = x;

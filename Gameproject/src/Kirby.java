@@ -30,6 +30,9 @@ public class Kirby {
     private static final int INHALE_FRAME_RATE = 4;  // 흡입 애니메이션 속도 조절
     private boolean isStartingInhale = false;  // 흡입 시작 여부
     private int inhaleDelay = 0;
+    private int energy = 100;
+    private static final int MAX_ENERGY=100;
+    private static final int ENERGY_COST=10;
     
     
     public Kirby(int startX, int startY) {
@@ -107,6 +110,8 @@ public class Kirby {
     }
     
     public void update() {
+    	recoverEnergy();
+
         // 중력 적용
         velocityY += GRAVITY;
         
@@ -193,6 +198,21 @@ public class Kirby {
         velocityX = MOVE_SPEED;
         facingRight = true;
     }
+    public void useEnergy() {
+        if (energy >= ENERGY_COST) {
+            energy -= ENERGY_COST;
+            System.out.println("Energy: " + energy);
+        } else {
+            System.out.println("Not enough energy!");
+        }
+    }
+    private void recoverEnergy() {
+        if (energy < MAX_ENERGY) {
+            energy++;
+        }
+    }
+
+
     
     public void jump() {
         if (isOnGround) {  // 바닥이나 플랫폼 위에 있을 때만 점프 가능
@@ -228,15 +248,28 @@ public class Kirby {
     }
     
     public void useAbility() {
-        switch(currentAbility) {
+        if (energy < ENERGY_COST) {  // 에너지가 부족한 경우
+            System.out.println("Not enough energy to use ability!");
+            return;
+        }
+
+        // 능력에 따른 행동 수행
+        switch (currentAbility) {
             case "FIRE":
-                // 불 뿜기 효과
+                  // 불 공격 호출
                 break;
             case "ICE":
-                // 얼음 공격 효과
+                  // 얼음 공격 호출
                 break;
+            default:
+                System.out.println("No special ability equipped.");
         }
+
+        // 에너지 소모
+        energy -= ENERGY_COST;
+        System.out.println("Energy: " + energy);
     }
+
   
 
     
@@ -329,6 +362,22 @@ public class Kirby {
     public int getHp() {
         return hp;
     }
+    public void heal(int amount) {
+        hp += amount;
+        if (hp > 100) {
+            hp = 100;
+        }
+        System.out.println("Healed! HP: " + hp);
+    }
+
+    public void rechargeEnergy(int amount) {
+        energy += amount;
+        if (energy > MAX_ENERGY) {
+            energy = MAX_ENERGY;
+        }
+        System.out.println("Energy recharged! Energy: " + energy);
+    }
+
 
     
     private void drawInhaleEffect(Graphics g) {

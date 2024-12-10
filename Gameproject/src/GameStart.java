@@ -2,6 +2,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.ArrayList;
+
 
 public class GameStart extends JFrame {
     public static final int SCREEN_WIDTH = 1200;
@@ -13,7 +16,8 @@ public class GameStart extends JFrame {
     private ArrayList<Enemy> enemies = new ArrayList<>();
     private int score = 0;
     private int currentStage=1;
-    
+    private List<Item> items = new ArrayList<>();  // 아이템 리스트 선언 및 초기화
+
     public GameStart() {
         System.out.println("GameMain 초기화 중...");  // 실행 확인용
         
@@ -136,7 +140,8 @@ public class GameStart extends JFrame {
                 if (player.isInhaling()) {
                 	//흡입 중이라면
                     player.copyAbility(enemy);
-                    score += 100;  
+                    score += 100;
+                    spawnItem(enemy.getX(),enemy.getY());
                 }else {
                 	//흡입 중이 아니라면               
                 	player.takeDamage(10);
@@ -146,9 +151,21 @@ public class GameStart extends JFrame {
                 
             }
         }
+        for (Item item : items) {
+        	if (player.getBounds().intersects(item.getBounds())) {
+        		item.collect(player);
+        	}
+        }
         if (enemies.isEmpty()) {
             nextStage();  // 다음 스테이지로 진행
         }
+        items.removeIf(item -> {
+            if (player.getBounds().intersects(item.getBounds())) {
+                item.collect(player);  // Kirby에게 아이템 효과 적용
+                return true;  // 충돌한 아이템 제거
+            }
+            return false;
+        });
         
         gamePanel.repaint();
     }
@@ -209,7 +226,15 @@ public class GameStart extends JFrame {
         currentStage++;  
         System.out.println("Proceeding to Stage: " + currentStage);
     }
+    private void spawnItem(int x, int y) {
+        double random = Math.random(); // 0.0 ~ 1.0 사이의 랜덤 값
+        if (random < 0.3) {
+            items.add(new Item(x, y, "HEALTH"));
+        }
+    }
     private void setupStage(int stageNumber) {
+    	
+    	
         switch (stageNumber) {
             case 1:
                 // 스테이지 1 설정
@@ -227,6 +252,7 @@ public class GameStart extends JFrame {
                 enemies.add(new Enemy(300, 200, "DARK"));
                 enemies.add(new Enemy(700, 150, "ICE", true));
                 enemies.add(new Enemy(900, 300, "FIRE"));
+                items.add(new Item(250, 430, "ENERGY"));
                 break;
 
             case 3:
@@ -235,6 +261,7 @@ public class GameStart extends JFrame {
                 platforms.add(new Platform(450, 400, 300, 20));
                 enemies.add(new Enemy(300, 200, "FIRE", true));
                 enemies.add(new Enemy(600, 300, "DARK"));
+                items.add(new Item(250, 450, "HEALTH"));
                 break;
 
             default:
@@ -317,6 +344,11 @@ public class GameStart extends JFrame {
             // 적 그리기
             for (Enemy enemy : enemies) {
                 enemy.draw(g);
+            }
+            
+            // 아이템 그리기
+            for (Item item : items) {
+                item.draw(g);
             }
             
             // 점수 표시
