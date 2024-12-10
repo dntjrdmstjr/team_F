@@ -53,8 +53,8 @@ public class Kirby {
             int idleY = 8;     // 대기 스프라이트 Y 좌표
             
             // 흡입 스프라이트 위치
-            int inhaleStartX = 40;  // 실제 스프라이트 시트의 흡입 모션 X 좌표로 수정 필요
-            int inhaleStartY = 8;   // 실제 스프라이트 시트의 흡입 모션 Y 좌표로 수정 필요
+            int inhaleStartX = 725;  // 실제 스프라이트 시트의 흡입 모션 X 좌표로 수정 필요
+            int inhaleStartY = 180;   // 실제 스프라이트 시트의 흡입 모션 Y 좌표로 수정 필요
             
             // 걷기 스프라이트 추출
             for (int i = 0; i < 10; i++) {
