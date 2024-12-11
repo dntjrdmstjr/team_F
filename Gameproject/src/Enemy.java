@@ -13,6 +13,9 @@ public class Enemy {
     private double angle=0;
     private boolean isBeingInhaled = false;  // 흡입 당하는 중인지 여부
     private Kirby targetKirby;              // 흡입하는 커비 참조
+    private boolean isShot = false;
+    private double shotSpeed = 15.0;
+    private boolean isVisible = true;
     
     public Enemy(int x, int y, String type) {
     	this(x, y, type, false);
@@ -63,45 +66,53 @@ public class Enemy {
             double distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance > 5) {
-                double speed = 8.0;  // 기본 속도를 낮춤
-                // 거리가 가까워질수록 더 빠르게
-                double speedMultiplier = 1.0;
-                if (distance < 150) {
-                    speedMultiplier = 2.0 + (150 - distance) / 30;  // 가까워질수록 가속
+                // 거리에 따른 속도 조절
+                double baseSpeed = 5.0;  // 기본 속도
+                double maxSpeed = 20.0;  // 최대 속도
+                double speedMultiplier = 1.0 + (distance / 50);  // 거리가 멀수록 빠르게
+                
+                // 가까워질수록 더 빠르게 (지수적 증가)
+                if (distance < 100) {
+                    speedMultiplier *= (1.0 + Math.pow((100 - distance) / 100, 2) * 3);
                 }
                 
-                x += (dx / distance) * speed * speedMultiplier;
-                y += (dy / distance) * speed * speedMultiplier;
+                // 속도 제한
+                double speed = Math.min(baseSpeed * speedMultiplier, maxSpeed);
+                
+                // 이동
+                x += (dx / distance) * speed;
+                y += (dy / distance) * speed;
+                
+                // 크기 축소 효과 (가까워질수록 작아짐)
+                if (distance < 50) {
+                    size = (int)(40 * (distance / 50));
+                }
+            }
+        } else if (isShot) {
+            // 발사체 업데이트
+            x += velocityX;
+            
+            // 화면 밖으로 나가면 제거
+            if (x < 0 || x > GameStart.SCREEN_WIDTH) {
+                isAlive = false;
             }
         } else {
+            // 일반 이동 로직
             if (verticalMovement) {
-                y = initialY + (int)(Math.sin(angle) * verticalRange);  // 사인파 이동
-                angle += 0.05;  // 각도 증가
-                if (angle > Math.PI * 2) angle = 0;  // 각도 초기화
+                y = initialY + (int)(Math.sin(angle) * verticalRange);
+                angle += 0.05;
+                if (angle > Math.PI * 2) angle = 0;
             } else {
                 x += velocityX;
                 if (x <= 0 || x >= GameStart.SCREEN_WIDTH - size) {
-                    velocityX *= -1;  // 좌우 반전
-                }
-            }
-        
-
-            if (verticalMovement) {
-                y += velocityX;  // velocityX를 Y 방향 속도로 사용
-                if (y <= initialY - verticalRange || y >= initialY + verticalRange) {
-                    velocityX *= -1;  // 위아래 반전
-                }
-            } else {
-                x += velocityX;
-                if (x <= 0 || x >= GameStart.SCREEN_WIDTH - size) {
-                    velocityX *= -1;  // 좌우 반전
+                    velocityX *= -1;
                 }
             }
         }
     }
     
     public void draw(Graphics g) {
-        if (!isAlive) return;
+        if (!isAlive || !isVisible) return;
         
         switch(type) {
             case "FIRE":
@@ -136,20 +147,28 @@ public class Enemy {
     }
     
     public void defeat() {
-        isAlive = false;
+        if (isVisible) {  // 보이는 상태일 때만 죽음 처리
+            isAlive = false;
+            hp = 0;
+        }
     }
     
     
     public void takeDamage(int damage) {
-        hp -= damage;
-        if (hp <= 0) {
-            isAlive = false;
+        // 흡입 중이거나 보이지 않을 때는 데미지를 받지 않음
+        if (!isBeingInhaled && isVisible) {
+            hp -= damage;
+            if (hp <= 0) {
+                isAlive = false;
+            }
         }
     }
     
     public void startInhale(Kirby kirby) {
         isBeingInhaled = true;
         targetKirby = kirby;
+        // 흡입 시작 시 무적 상태로
+        hp = 100;  // 체력 유지
     }
     
     public void stopInhale() {
@@ -159,5 +178,22 @@ public class Enemy {
     
     public boolean isBeingInhaled() {
         return isBeingInhaled;
+    }
+    
+    public void shoot(boolean facingRight, double startX, double startY) {
+        isShot = true;
+        isVisible = true;  // 발사할 때 다시 보이게 함
+        x = startX;
+        y = startY;
+        
+        // 발사 방향 설정
+        velocityX = facingRight ? shotSpeed : -shotSpeed;
+    }
+    
+    public void setVisible(boolean visible) {
+        this.isVisible = visible;
+        if (!visible) {
+            isAlive = false;  // 보이지 않게 될 때 죽은 상태로 변경
+        }
     }
 } 
