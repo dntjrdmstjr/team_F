@@ -33,6 +33,10 @@ public class Kirby {
     private int energy = 100;
     private static final int MAX_ENERGY=100;
     private static final int ENERGY_COST=10;
+    private boolean isHoldingEnemy = false;  // 적을 머금고 있는지 여부
+    private BufferedImage holdSprite;  // 단일 이미지로 변경
+    private Enemy heldEnemy;                 // 머금고 있는 적
+    private BufferedImage[] holdWalkSprites;  // 머금고 움직이는 스프라이트 추가
     
     
     public Kirby(int startX, int startY) {
@@ -56,9 +60,10 @@ public class Kirby {
         try {
             spriteSheet = ImageIO.read(new File("img/kirby.png"));
             walkSprites = new BufferedImage[9];
-            inhaleSprites = new BufferedImage[6];  // 흡입 스프라이트 배열 추가
+            inhaleSprites = new BufferedImage[6];
+            holdWalkSprites = new BufferedImage[9];  // 머금고 걷는 모션 15프레임
             
-         // 각 스프라이트의 위치와 크기 정보 설정
+            // 걷기 스프라이트 정보
             SpriteInfo[] walkInfo = {
                 new SpriteInfo(254, 9, 20, 19),  // 걷기 1
                 new SpriteInfo(274, 9, 23, 19),  // 걷기 2
@@ -71,9 +76,10 @@ public class Kirby {
                 new SpriteInfo(446, 10, 20, 18),  // 걷기 9
             };
             
+            // 흡입 스프라이트 정보
             SpriteInfo[] inhaleInfo = {
-                new SpriteInfo(772, 179, 21, 21),    // 흡입 1 (더 큰 크기)
-                new SpriteInfo(748, 177, 22, 23),    // 흡입 2 (다른 크기)
+                new SpriteInfo(772, 179, 21, 21),    // 흡입 1
+                new SpriteInfo(748, 177, 22, 23),    // 흡입 2
                 new SpriteInfo(794, 178, 25, 22),    // 흡입 3
                 new SpriteInfo(820, 177, 23, 23),    // 흡입 4
                 new SpriteInfo(844, 179, 24, 22),    // 흡입 5
@@ -83,7 +89,23 @@ public class Kirby {
             // 대기 스프라이트 정보
             SpriteInfo idleInfo = new SpriteInfo(8, 8, 20, 20);
             
-         // 걷기 스프라이트 추출
+            // 머금기 스프라이트 정보 (단일 이미지)
+            SpriteInfo holdInfo = new SpriteInfo(7, 216, 25, 23);
+            
+            // 머금고 걷기 스프라이트 정보
+            SpriteInfo[] holdWalkInfo = {
+                new SpriteInfo(142, 214, 26, 25),  // 머금고 걷기 1
+                new SpriteInfo(168, 215, 26, 24),  // 머금고 걷기 2
+                new SpriteInfo(218, 216, 25, 23),   // 머금고 걷기 3
+                new SpriteInfo(244, 217, 26, 22),  // 머금고 걷기 4
+                new SpriteInfo(297, 216, 22, 23),  // 머금고 걷기 5
+                new SpriteInfo(321, 214, 24, 25),  // 머금고 걷기 6
+                new SpriteInfo(373, 216, 24, 23),  // 머금고 걷기 7
+                new SpriteInfo(398, 216, 24, 23),  // 머금고 걷기 8
+                new SpriteInfo(449, 216, 22, 23),  // 머금고 걷기 9
+            };
+            
+            // 걷기 스프라이트 로딩
             for (int i = 0; i < walkSprites.length; i++) {
                 SpriteInfo info = walkInfo[i];
                 walkSprites[i] = spriteSheet.getSubimage(
@@ -91,15 +113,28 @@ public class Kirby {
                 );
             }
             
-            // 대기 스프라이트 추출
+            // 흡입 스프라이트 로딩
+            for (int i = 0; i < inhaleSprites.length; i++) {
+                SpriteInfo info = inhaleInfo[i];
+                inhaleSprites[i] = spriteSheet.getSubimage(
+                    info.x, info.y, info.width, info.height
+                );
+            }
+            
+            // 머기 스프라이트 로딩
             idleSprite = spriteSheet.getSubimage(
                 idleInfo.x, idleInfo.y, idleInfo.width, idleInfo.height
             );
             
-            // 흡입 스프라이트 추출
-            for (int i = 0; i < inhaleSprites.length; i++) {
-                SpriteInfo info = inhaleInfo[i];
-                inhaleSprites[i] = spriteSheet.getSubimage(
+            // 머금기 스프라이트 로딩 (단일 이미지)
+            holdSprite = spriteSheet.getSubimage(
+                holdInfo.x, holdInfo.y, holdInfo.width, holdInfo.height
+            );
+            
+            // 머금고 걷기 스프라이트 로딩
+            for (int i = 0; i < holdWalkSprites.length; i++) {
+                SpriteInfo info = holdWalkInfo[i];
+                holdWalkSprites[i] = spriteSheet.getSubimage(
                     info.x, info.y, info.width, info.height
                 );
             }
@@ -115,17 +150,16 @@ public class Kirby {
         // 중력 적용
         velocityY += GRAVITY;
         
-        // 이동 처리
+        // 이동 처리 - 가속도 기반 움직임
         if (isMovingLeft) {
             velocityX = -MOVE_SPEED;
             facingRight = false;
-        }
-        if (isMovingRight) {
+        } else if (isMovingRight) {
             velocityX = MOVE_SPEED;
             facingRight = true;
-        }
-        if (!isMovingLeft && !isMovingRight) {
-            velocityX *= 0.9;  // 감속
+        } else {
+            // 미끄러지는 효과를 위한 감속
+            velocityX *= 0.8;  // 마찰 계수
         }
         
         // 위치 업데이트
@@ -222,7 +256,9 @@ public class Kirby {
     }
     
     public void startInhale() {
-        isInhaling = true;
+        if (!isHoldingEnemy) {  // 적을 머금고 있지 않을 때만 흡입 시작
+            isInhaling = true;
+        }
     }
     
     public void stopInhale() {
@@ -234,7 +270,7 @@ public class Kirby {
     }
     
     public void copyAbility(Enemy enemy) {
-        if (isInhaling && enemy.isAlive()) {
+        if (isInhaling && enemy.isAlive() && !isHoldingEnemy) {
             Rectangle inhaleArea;
             if (facingRight) {
                 inhaleArea = new Rectangle((int)x + size, (int)y - 40, 200, 120);
@@ -242,20 +278,27 @@ public class Kirby {
                 inhaleArea = new Rectangle((int)x - 200, (int)y - 40, 200, 120);
             }
             
+            // 흡입 범위 안에 있으면 빨려들어오기 시작
             if (inhaleArea.intersects(enemy.getBounds()) && !enemy.isBeingInhaled()) {
                 enemy.startInhale(this);
             }
             
-            double distance = Math.sqrt(
-                Math.pow(x - enemy.getX(), 2) + 
-                Math.pow(y - enemy.getY(), 2)
-            );
-            
-            if (distance < size && enemy.isBeingInhaled()) {
-                currentAbility = enemy.getType();
-                enemy.defeat();
-                GameStart.addScore(100);  // 점수 추가
-                GameStart.spawnItem(enemy.getX(), enemy.getY());  // 아이템 생성
+            // 충분히 가까워지면 머금기
+            if (enemy.isBeingInhaled()) {
+                double distance = Math.sqrt(
+                    Math.pow(x - enemy.getX(), 2) + 
+                    Math.pow(y - enemy.getY(), 2)
+                );
+                
+                if (distance < size) {
+                    heldEnemy = enemy;
+                    isHoldingEnemy = true;
+                    isInhaling = false;
+                    enemy.setVisible(false);
+                    enemy.stopInhale();
+                    enemy.defeat();  // 적을 죽은 상태로 만듦
+                    currentAbility = enemy.getType();
+                }
             }
         }
     }
@@ -292,10 +335,17 @@ public class Kirby {
             return;
         }
         
-        // 스프라이트 그리기
         BufferedImage currentSprite;
-        if (isInhaling) {
-            currentSprite = inhaleSprites[inhaleFrame];  // 별도의 흡입 프레임 사용
+        if (isHoldingEnemy) {
+            if (isMovingLeft || isMovingRight) {
+                // 머금고 있는 상태에서 움직일 때
+                currentSprite = holdWalkSprites[currentFrame % holdWalkSprites.length];
+            } else {
+                // 머금고 있는 상태에서 대기할 때
+                currentSprite = holdSprite;
+            }
+        } else if (isInhaling) {
+            currentSprite = inhaleSprites[inhaleFrame];
         } else if (isMovingLeft || isMovingRight) {
             currentSprite = walkSprites[currentFrame];
         } else {
@@ -311,7 +361,7 @@ public class Kirby {
         
         // 흡입 효과
         if (isInhaling) {
-        	drawInhaleEffect(g);
+            drawInhaleEffect(g);
         }
         
         // 상태 표시 (HP바, 능력 등)
@@ -438,6 +488,27 @@ public class Kirby {
 
     public int getSize() {
         return size;
+    }
+
+    private void shootEnemy() {
+        if (heldEnemy != null) {
+            // 발사체 생성
+            GameStart.addProjectile(new Projectile(x, y, facingRight, heldEnemy.getType()));
+            // 적은 제거
+            heldEnemy.defeat();  // 완전히 제거
+            heldEnemy = null;
+            isHoldingEnemy = false;
+        }
+    }
+
+    public boolean isHoldingEnemy() {
+        return isHoldingEnemy;
+    }
+
+    public void shootHeldEnemy() {
+        if (isHoldingEnemy) {
+            shootEnemy();
+        }
     }
 } 
  

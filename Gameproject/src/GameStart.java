@@ -16,6 +16,7 @@ public class GameStart extends JFrame {
     private static int score = 0;
     private int currentStage=1;
     private static List<Item> items = new ArrayList<>();  // static으로 변경
+    private static List<Projectile> projectiles = new ArrayList<>();
 
     public GameStart() {
         System.out.println("GameMain 초기화 중...");  // 실행 확인용
@@ -61,7 +62,7 @@ public class GameStart extends JFrame {
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, false), "JUMP");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, 0, false), "START_INHALE");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, 0, true), "STOP_INHALE");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, 0, false), "USE_ABILITY");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, 0, false), "SHOOT");
         
         am.put("LEFT_PRESSED", new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
@@ -105,9 +106,9 @@ public class GameStart extends JFrame {
             }
         });
         
-        am.put("USE_ABILITY", new AbstractAction() {
+        am.put("SHOOT", new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                player.useAbility();
+                player.shootHeldEnemy();
             }
         });
     }
@@ -123,28 +124,23 @@ public class GameStart extends JFrame {
         player.update();
         
         if(!player.isAlive()) {
-        	gameTimer.stop();
-        	showGameOverDialog();
-        	return;
+            gameTimer.stop();
+            showGameOverDialog();
+            return;
         }
-        
         
         // 적 업데이트
         enemies.removeIf(enemy -> !enemy.isAlive());
         for (Enemy enemy : enemies) {
             enemy.update();
             
-            // 흡입 체크를 항상 수행
-            if (player.isInhaling()) {
+            // 흡입 체이거나 적을 머금고 있을 때는 데미지를 받지 않음
+            if (player.isInhaling() || player.isHoldingEnemy()) {
                 player.copyAbility(enemy);
-            }
-            
-            // 충돌 체크
-            if (player.getBounds().intersects(enemy.getBounds())) {
-                if (!player.isInhaling()) {  // 흡입 중이 아닐 때만 데미지
-                    player.takeDamage(10);
-                    System.out.println("Current HP"+player.getHp());
-                }
+            } else if (player.getBounds().intersects(enemy.getBounds())) {
+                // 일반 상태에서만 데미지
+                player.takeDamage(10);
+                System.out.println("Current HP: " + player.getHp());
             }
         }
         for (Item item : items) {
@@ -162,6 +158,12 @@ public class GameStart extends JFrame {
             }
             return false;
         });
+        
+        // 발사체 업데이트
+        projectiles.removeIf(p -> !p.isActive());
+        for (Projectile p : projectiles) {
+            p.update();
+        }
         
         gamePanel.repaint();
     }
@@ -307,6 +309,10 @@ public class GameStart extends JFrame {
         score += points;
     }
 
+    public static void addProjectile(Projectile p) {
+        projectiles.add(p);
+    }
+
 
 
 
@@ -349,6 +355,11 @@ public class GameStart extends JFrame {
             // 아이템 그리기
             for (Item item : items) {
                 item.draw(g);
+            }
+            
+            // 발사체 그리기
+            for (Projectile p : projectiles) {
+                p.draw(g);
             }
             
             // 점수 표시
