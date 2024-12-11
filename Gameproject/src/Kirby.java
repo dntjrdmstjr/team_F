@@ -227,22 +227,35 @@ public class Kirby {
     
     public void stopInhale() {
         isInhaling = false;
+        // 모든 적의 흡입 상태 해제
+        for (Enemy enemy : GameStart.enemies) {
+            enemy.stopInhale();
+        }
     }
     
     public void copyAbility(Enemy enemy) {
         if (isInhaling && enemy.isAlive()) {
-            // 방향에 따른 흡입 가능 범위 확인
             Rectangle inhaleArea;
             if (facingRight) {
-                inhaleArea = new Rectangle((int)x + size, (int)y, 30, 50);
+                inhaleArea = new Rectangle((int)x + size, (int)y - 40, 200, 120);
             } else {
-                inhaleArea = new Rectangle((int)x - 30, (int)y, 30, 50);
+                inhaleArea = new Rectangle((int)x - 200, (int)y - 40, 200, 120);
             }
             
-            // 흡입 범위 안에 적이 있을 때만 능력 복사
-            if (inhaleArea.intersects(enemy.getBounds())) {
+            if (inhaleArea.intersects(enemy.getBounds()) && !enemy.isBeingInhaled()) {
+                enemy.startInhale(this);
+            }
+            
+            double distance = Math.sqrt(
+                Math.pow(x - enemy.getX(), 2) + 
+                Math.pow(y - enemy.getY(), 2)
+            );
+            
+            if (distance < size && enemy.isBeingInhaled()) {
                 currentAbility = enemy.getType();
                 enemy.defeat();
+                GameStart.addScore(100);  // 점수 추가
+                GameStart.spawnItem(enemy.getX(), enemy.getY());  // 아이템 생성
             }
         }
     }
@@ -382,24 +395,49 @@ public class Kirby {
     
     private void drawInhaleEffect(Graphics g) {
         Graphics2D g2d = (Graphics2D) g.create();
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
         
+        // 흡입 범위 표시
+        g2d.setColor(new Color(255, 255, 255, 30));
         if (facingRight) {
-            for (int i = 1; i <= 5; i++) {
-                int width = 30 - i * 4;
-                int height = 40 - i * 4;
-                g2d.setColor(new Color(255, 255, 255, 200 - i * 30));
-                g2d.fillOval((int)x + size + i * 10, (int)y + 5, width, height);
+            g2d.fillRect((int)x + size, (int)y - 40, 200, 120);
+        } else {
+            g2d.fillRect((int)x - 200, (int)y - 40, 200, 120);
+        }
+        
+        // 기존 흡입 효과
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+        if (facingRight) {
+            for (int i = 1; i <= 8; i++) {
+                int width = 40 - i * 4;
+                int height = 50 - i * 4;
+                g2d.setColor(new Color(255, 255, 255, 200 - i * 20));
+                g2d.fillOval((int)x + size + i * 30, (int)y - 5, width, height);
             }
         } else {
-            for (int i = 1; i <= 5; i++) {
-                int width = 30 - i * 4;
-                int height = 40 - i * 4;
-                g2d.setColor(new Color(255, 255, 255, 200 - i * 30));
-                g2d.fillOval((int)x - 30 - i * 10, (int)y + 5, width, height);
+            for (int i = 1; i <= 8; i++) {
+                int width = 40 - i * 4;
+                int height = 50 - i * 4;
+                g2d.setColor(new Color(255, 255, 255, 200 - i * 20));
+                g2d.fillOval((int)x - 40 - i * 30, (int)y - 5, width, height);
             }
         }
         g2d.dispose();
+    }
+
+    public double getX() {
+        return x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public boolean isFacingRight() {
+        return facingRight;
+    }
+
+    public int getSize() {
+        return size;
     }
 } 
  

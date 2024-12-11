@@ -3,7 +3,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.ArrayList;
 
 
 public class GameStart extends JFrame {
@@ -13,10 +12,10 @@ public class GameStart extends JFrame {
     private Kirby player;
     private Timer gameTimer;
     public static ArrayList<Platform> platforms = new ArrayList<>();
-    private ArrayList<Enemy> enemies = new ArrayList<>();
-    private int score = 0;
+    public static ArrayList<Enemy> enemies = new ArrayList<>();
+    private static int score = 0;
     private int currentStage=1;
-    private List<Item> items = new ArrayList<>();  // 아이템 리스트 선언 및 초기화
+    private static List<Item> items = new ArrayList<>();  // static으로 변경
 
     public GameStart() {
         System.out.println("GameMain 초기화 중...");  // 실행 확인용
@@ -134,21 +133,18 @@ public class GameStart extends JFrame {
         enemies.removeIf(enemy -> !enemy.isAlive());
         for (Enemy enemy : enemies) {
             enemy.update();
-            // 충돌 체크
             
+            // 흡입 체크를 항상 수행
+            if (player.isInhaling()) {
+                player.copyAbility(enemy);
+            }
+            
+            // 충돌 체크
             if (player.getBounds().intersects(enemy.getBounds())) {
-                if (player.isInhaling()) {
-                	//흡입 중이라면
-                    player.copyAbility(enemy);
-                    score += 100;
-                    spawnItem(enemy.getX(),enemy.getY());
-                }else {
-                	//흡입 중이 아니라면               
-                	player.takeDamage(10);
-                	System.out.println("Current HP"+player.getHp());
-                	
-                }           
-                
+                if (!player.isInhaling()) {  // 흡입 중이 아닐 때만 데미지
+                    player.takeDamage(10);
+                    System.out.println("Current HP"+player.getHp());
+                }
             }
         }
         for (Item item : items) {
@@ -226,8 +222,8 @@ public class GameStart extends JFrame {
         currentStage++;  
         System.out.println("Proceeding to Stage: " + currentStage);
     }
-    private void spawnItem(int x, int y) {
-        double random = Math.random(); // 0.0 ~ 1.0 사이의 랜덤 값
+    public static void spawnItem(int x, int y) {
+        double random = Math.random();
         if (random < 0.3) {
             items.add(new Item(x, y, "HEALTH"));
         }
@@ -305,6 +301,10 @@ public class GameStart extends JFrame {
         gameClearFrame.add(buttonPanel, BorderLayout.SOUTH);
         gameClearFrame.setLocationRelativeTo(null);
         gameClearFrame.setVisible(true);
+    }
+
+    public static void addScore(int points) {
+        score += points;
     }
 
 
