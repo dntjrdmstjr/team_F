@@ -26,7 +26,7 @@ public class GameStart extends JFrame {
         System.out.println("GameMain 초기화 중...");  // 실행 확인용
         
         // 기본 프레임 설정
-        setTitle("Kirby Game");
+        setTitle("CyberPunk Kirby");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setPreferredSize(new Dimension(SCREEN_WIDTH, SCREEN_HEIGHT));
         setLayout(new BorderLayout());
@@ -84,7 +84,7 @@ public class GameStart extends JFrame {
         gbc.gridy = 0; // 첫 번째 행
 
         // 게임 제목 라벨
-        JLabel titleLabel = new JLabel("Kirby Game", SwingConstants.CENTER);
+        JLabel titleLabel = new JLabel("CyberPunk Kirby", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 36));
         titleLabel.setForeground(Color.WHITE);
         mainMenuPanel.add(titleLabel, gbc);
@@ -190,10 +190,18 @@ public class GameStart extends JFrame {
     private void updateGame() {
         player.update();
         
+        player.updateInvincibility(); //무적 상태 업그레이드
+        
         if(!player.isAlive()) {
             gameTimer.stop();
             showGameOverDialog();
             return;
+        }
+        for(Enemy enemy : enemies) {
+        	if (!player.isInvincible() && player.getBounds().intersects(enemy.getBounds())) {
+        		player.takeDamage(10);
+        		System.out.println("Current HP: " + player.getHp());
+        	}
         }
         
         // 적 업데이트
@@ -311,6 +319,8 @@ public class GameStart extends JFrame {
         setupStage(currentStage + 1);  
         currentStage++;  
         System.out.println("Proceeding to Stage: " + currentStage);
+        
+        player.startInvincibility(2000); //2초간 무적
     }
     public static void spawnItem(int x, int y) {
         double random = Math.random();

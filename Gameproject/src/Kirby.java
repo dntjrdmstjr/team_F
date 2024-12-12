@@ -24,6 +24,8 @@ public class Kirby {
     private BufferedImage idleSprite;
     private int currentFrame = 0;
     private int frameDelay = 0;
+    private boolean isInvincible = false; // 무적 상태 여부
+    private long invincibleEndTime = 0; // 무적 상태 종료 시간
     private static final int FRAME_DELAY_RATE = 5;  // 프레임 변경 속도
     private BufferedImage[] inhaleSprites;  // 클래스 필드에 추가
     private int inhaleFrame = 0;
@@ -143,6 +145,21 @@ public class Kirby {
             System.out.println("스프라이트를 로드할 수 없습니다: " + e.getMessage());
         }
     }
+    public void startInvincibility(long durationMillis) {
+        isInvincible = true;
+        invincibleEndTime = System.currentTimeMillis() + durationMillis;
+    }
+
+    public void updateInvincibility() {
+        if (isInvincible && System.currentTimeMillis() > invincibleEndTime) {
+            isInvincible = false;
+        }
+    }
+
+    public boolean isInvincible() {
+        return isInvincible;
+    }
+
     
     public void update() {
     	recoverEnergy();
@@ -330,6 +347,7 @@ public class Kirby {
 
     
     public void draw(Graphics g) {
+    	
         if (spriteSheet == null) {
             drawBasicKirby(g);
             return;
