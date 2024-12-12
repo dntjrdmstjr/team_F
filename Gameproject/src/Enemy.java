@@ -159,8 +159,10 @@ public class Enemy {
         if (!isBeingInhaled && isVisible) {
             hp -= damage;
             if (hp <= 0) {
-                isAlive = false;
+            	hp=0;
+            	defeat();          
             }
+            System.out.println("Enemy hit! Remaining Hp:"+hp);
         }
     }
     

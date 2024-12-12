@@ -3,12 +3,15 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.awt.event.ActionEvent;
 
 public class GameStart extends JFrame {
     public static final int SCREEN_WIDTH = 1200;
     public static final int SCREEN_HEIGHT = 800;
+    private JPanel mainContainer;
+    private JPanel mainMenuPanel;
     private GamePanel gamePanel;
+    private boolean gameStarted = false;
     private Kirby player;
     private Timer gameTimer;
     public static ArrayList<Platform> platforms = new ArrayList<>();
@@ -17,7 +20,8 @@ public class GameStart extends JFrame {
     private int currentStage=1;
     private static List<Item> items = new ArrayList<>();  // static으로 변경
     private static List<Projectile> projectiles = new ArrayList<>();
-
+    private static final int MAX_STAGE=5; 
+    
     public GameStart() {
         System.out.println("GameMain 초기화 중...");  // 실행 확인용
         
@@ -25,6 +29,14 @@ public class GameStart extends JFrame {
         setTitle("Kirby Game");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setPreferredSize(new Dimension(SCREEN_WIDTH, SCREEN_HEIGHT));
+        setLayout(new BorderLayout());
+        
+        mainContainer = new JPanel(new CardLayout());
+        add(mainContainer, BorderLayout.CENTER);
+        
+        setupMainMenu();
+        
+        setupGamePanel();
         
         // 게임 요소 초기화
         player = new Kirby(100, 400);
@@ -40,15 +52,66 @@ public class GameStart extends JFrame {
         
         // 게임 패널 설정
         gamePanel = new GamePanel();
-        add(gamePanel);
+       
         
         // 컨트롤 및 게임 루프 설정
         setupControls();
         setupGameLoop();
         
+        mainContainer.add(mainMenuPanel, "MainMenu");
+        mainContainer.add(gamePanel, "Game");
+        
         // 프레임 마무리
         pack();
         setLocationRelativeTo(null);
+    }
+    
+    private void setupMainMenu() {
+        mainMenuPanel = new JPanel() {
+            private Image background = new ImageIcon("img/industrial-background.jpg").getImage();
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.drawImage(background, 0, 0, getWidth(), getHeight(), this);
+            }
+        };
+
+        mainMenuPanel.setLayout(new GridBagLayout()); // 중앙 배치를 위한 GridBagLayout 사용
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(20, 0, 20, 0); // 컴포넌트 간 여백 설정
+        gbc.gridx = 0; // 컴포넌트 X축 중앙 정렬
+        gbc.gridy = 0; // 첫 번째 행
+
+        // 게임 제목 라벨
+        JLabel titleLabel = new JLabel("Kirby Game", SwingConstants.CENTER);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 36));
+        titleLabel.setForeground(Color.WHITE);
+        mainMenuPanel.add(titleLabel, gbc);
+
+        // 버튼 배치
+        gbc.gridy = 1; // 두 번째 행
+        JButton startButton = new JButton("Start Game");
+        startButton.setFont(new Font("Arial", Font.PLAIN, 24));
+        startButton.setBackground(Color.BLACK); // 버튼 배경색 변경
+        startButton.setForeground(Color.WHITE); // 버튼 텍스트 색상 변경
+        startButton.setFocusPainted(false); // 버튼 포커스 테두리 제거
+        startButton.setBorder(BorderFactory.createLineBorder(Color.WHITE)); // 버튼 테두리 설정
+        startButton.addActionListener(e -> {
+            CardLayout cl = (CardLayout) mainContainer.getLayout();
+            cl.show(mainContainer, "Game"); // 게임 화면으로 전환
+            gameStarted = true;
+        });
+
+        mainMenuPanel.add(startButton, gbc);
+    }
+
+
+    private void setupGamePanel() {
+        player = new Kirby(100, 400); // Kirby 초기화
+        gamePanel = new GamePanel(); // 게임 패널 설정
+        setupControls(); // 키보드 컨트롤 설정
+        setupGameLoop(); // 게임 루프 설정
     }
     
     private void setupControls() {
@@ -114,7 +177,11 @@ public class GameStart extends JFrame {
     }
     
     private void setupGameLoop() {
-        gameTimer = new Timer(16, e -> {  // 약 60FPS
+    	if (gameTimer != null && gameTimer.isRunning()) {
+            gameTimer.stop();  // 기존 타이머를 멈춤
+        }
+
+        gameTimer = new Timer(1000 / 60, e -> {  // 정확히 60FPS
             updateGame();
         });
         gameTimer.start();
@@ -148,6 +215,17 @@ public class GameStart extends JFrame {
         		item.collect(player);
         	}
         }
+        projectiles.removeIf(p -> {
+            p.update(); // 발사체 위치 업데이트
+
+            for (Enemy enemy : enemies) {
+                if (p.isActive() && enemy.isAlive() && p.getBounds().intersects(enemy.getBounds())) {
+                    enemy.takeDamage(50); // 적에게 50의 데미지
+                    return true; // 발사체 제거
+                }
+            }
+            return !p.isActive();
+        });
         if (enemies.isEmpty()) {
             nextStage();  // 다음 스테이지로 진행
         }
@@ -158,6 +236,7 @@ public class GameStart extends JFrame {
             }
             return false;
         });
+        
         
         // 발사체 업데이트
         projectiles.removeIf(p -> !p.isActive());
@@ -207,6 +286,11 @@ public class GameStart extends JFrame {
         gameOverFrame.setVisible(true);
     }
     private void restartGame() {
+    	
+    	enemies.clear();
+    	platforms.clear();
+    	items.clear();
+    	
         // 초기화된 상태로 새 게임 시작
         this.dispose();  // 현재 창 닫기
         SwingUtilities.invokeLater(() -> {
@@ -215,6 +299,10 @@ public class GameStart extends JFrame {
         });
     }
     private void nextStage() {
+    	if (currentStage >= MAX_STAGE) {
+    		showGameClearDialog();
+    		return;
+    	}
         // 적 리스트와 Kirby 초기화
         enemies.clear();  
         platforms.clear();  
@@ -231,7 +319,6 @@ public class GameStart extends JFrame {
         }
     }
     private void setupStage(int stageNumber) {
-    	
     	
         switch (stageNumber) {
             case 1:
@@ -260,6 +347,26 @@ public class GameStart extends JFrame {
                 enemies.add(new Enemy(300, 200, "FIRE", true));
                 enemies.add(new Enemy(600, 300, "DARK"));
                 items.add(new Item(250, 450, "HEALTH"));
+                break;
+            case 4:
+                // 스테이지 4 설정
+                platforms.add(new Platform(100, 400, 300, 20));
+                platforms.add(new Platform(500, 300, 300, 20));
+                platforms.add(new Platform(900, 500, 200, 20));
+                enemies.add(new Enemy(200, 250, "ICE", true));
+                enemies.add(new Enemy(800, 250, "FIRE"));
+                items.add(new Item(550, 280, "HEALTH"));
+                break;
+
+            case 5:
+                // 스테이지 5 설정
+                platforms.add(new Platform(250, 450, 200, 20));
+                platforms.add(new Platform(600, 350, 250, 20));
+                platforms.add(new Platform(850, 450, 150, 20));
+                enemies.add(new Enemy(300, 300, "FIRE"));
+                enemies.add(new Enemy(700, 150, "ICE", true));
+                enemies.add(new Enemy(950, 300, "DARK", true));
+                items.add(new Item(650, 330, "ENERGY"));
                 break;
 
             default:
@@ -304,17 +411,13 @@ public class GameStart extends JFrame {
         gameClearFrame.setLocationRelativeTo(null);
         gameClearFrame.setVisible(true);
     }
-
+    
     public static void addScore(int points) {
-        score += points;
+    	score+=points;
     }
-
     public static void addProjectile(Projectile p) {
-        projectiles.add(p);
+    	projectiles.add(p);
     }
-
-
-
 
 
     
