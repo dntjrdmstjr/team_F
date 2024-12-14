@@ -433,11 +433,13 @@ public class Kirby {
         isMovingRight = moving;
     }
     public void takeDamage(int damage) {
-        hp -= damage;
-        if (hp <= 0) {
-            hp = 0;  // 체력이 0 이하로 내려가지 않도록 처리
-            System.out.println("Kirby has been defeated!");
-            // 게임 오버 처리 로직을 여기에 추가 가능
+    
+    	if (!isInhaling) {  // 흡입 상태가 아닐 때만 체력 감소
+            hp -= damage;
+            if (hp < 0) hp = 0;  // 체력 최소값 제한
+            System.out.println("Kirby took damage! HP: " + hp);
+        } else {
+            System.out.println("Kirby is inhaling and took no damage!");
         }
     }
     public int getHp() {
