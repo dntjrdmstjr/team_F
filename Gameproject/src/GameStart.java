@@ -29,6 +29,9 @@ public class GameStart extends JFrame {
     private long lastItemSpawnTime = 0;
     private static final int ITEM_SPAWN_INTERVAL = 30000; // 30초마다 아이템 생성
     private Clip backgroundMusic;
+    private Boss boss; // 보스 객체
+    private Kirby kirby; // Kirby 플레이어 객체
+
 	
 	private void loadStageBackground(int stageNumber) {
 	   
@@ -321,6 +324,12 @@ public class GameStart extends JFrame {
         for (Projectile p : projectiles) {
             p.update();
         }
+        if (boss != null) {
+        	System.out.println("Updating boss...");
+            boss.update(kirby); // Kirby 객체 전달
+        } else {
+            System.out.println("Boss is not initialized or missing.");
+        }
         
         
         gamePanel.repaint();
@@ -406,6 +415,7 @@ public class GameStart extends JFrame {
         enemies.clear();
         platforms.clear();
         items.clear();
+        boss = null;
 
         try {
             // 스테이지별 이미지 경로 배열 설정
@@ -470,6 +480,9 @@ public class GameStart extends JFrame {
                     enemies.add(new Enemy(950, 300, "DARK", null));  // DARK
                     enemies.add(new Enemy(platform11.getX() + 50, platform11.getY() - 40, "FIRE", platform11));  // FIRE
                     enemies.add(new Enemy(platform12.getX() + 50, platform12.getY() - 40, "ICE", platform12));  // ICE
+                    String bossSpriteSheet = "img/guardBlue64.png"; // 보스 스프라이트 경로
+                    Boss boss = new Boss(600, 200, 2000, bossSpriteSheet, platforms);
+                    enemies.add(boss);
                     items.add(new Item(650, 330, "ENERGY"));
                     break;
 

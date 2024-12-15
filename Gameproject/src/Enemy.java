@@ -9,13 +9,13 @@ import java.awt.geom.AffineTransform;
 
 
 public class Enemy {
-    private double x, y;
-    private double velocityX = 2;
-    private double velocityY =0;
-    private int hp = 100;
-    private int size = 40;
+	protected double x, y;
+	protected double velocityX = 4;
+	protected double velocityY =0;
+	protected int hp = 100;
+	protected int size = 40;
     private String type;  // 적의 타입 (능력을 결정)
-    private boolean isAlive = true;
+    protected boolean isAlive = true;
     private boolean verticalMovement = false;  // 수직 이동 여부
     private int verticalRange = 100;          // 수직 이동 범위
     private int initialY;                     // 초기 Y 위치
@@ -33,7 +33,7 @@ public class Enemy {
     private int animationSpeed = 100;      // 애니메이션 속도 (밀리초)
     private long lastFrameTime;
     private Platform currentPlatform;
-    
+    protected List<BufferedImage> teleportSprites;
     private static class SpriteInfo {
         public int x, y, width, height;
 
@@ -114,6 +114,9 @@ public class Enemy {
             case "DARK":
             	selectedInfo = darkSpriteInfo;
                 break;
+            case "BOSS":
+            	return;
+
             default:
                 throw new IllegalArgumentException("Unknown enemy type: " + type);
         }
@@ -327,6 +330,9 @@ public class Enemy {
     
     public boolean isBeingInhaled() {
         return isBeingInhaled;
+    }
+    public void update(Kirby kirby) {
+        update(); // 기본 동작 호출
     }
     
     public void shoot(boolean facingRight, double startX, double startY) {
