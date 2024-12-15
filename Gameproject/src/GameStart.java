@@ -4,6 +4,10 @@ import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.awt.event.ActionEvent;
+import java.util.Iterator;
+import java.io.IOException;
+import javax.sound.sampled.*;
+import java.io.File;
 
 public class GameStart extends JFrame {
     public static final int SCREEN_WIDTH = 1200;
@@ -18,18 +22,38 @@ public class GameStart extends JFrame {
     public static ArrayList<Enemy> enemies = new ArrayList<>();
     private static int score = 0;
     private int currentStage=1;
-    private static List<Item> items = new ArrayList<>();  // static으로 변경
+    private static List<Item> items = new ArrayList<>();  
     private static List<Projectile> projectiles = new ArrayList<>();
     private static final int MAX_STAGE=5; 
-    
+    private Image stagebackgroundImage;
+    private long lastItemSpawnTime = 0;
+    private static final int ITEM_SPAWN_INTERVAL = 30000; // 30초마다 아이템 생성
+    private Clip backgroundMusic;
+	
+	private void loadStageBackground(int stageNumber) {
+	   
+	}
+	public void setBackgroundImage(String imagePath) {
+        stagebackgroundImage = new ImageIcon(imagePath).getImage();
+    }
     public GameStart() {
         System.out.println("GameMain 초기화 중...");  // 실행 확인용
         
         // 기본 프레임 설정
         setTitle("CyberPunk Kirby");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                stopBackgroundMusic();
+                System.exit(0);
+            }
+        });
         setPreferredSize(new Dimension(SCREEN_WIDTH, SCREEN_HEIGHT));
         setLayout(new BorderLayout());
+        pack();
+        setLocationRelativeTo(null);
+        playBackgroundMusic("music/game-music.wav");
         
         mainContainer = new JPanel(new CardLayout());
         add(mainContainer, BorderLayout.CENTER);
@@ -64,6 +88,29 @@ public class GameStart extends JFrame {
         // 프레임 마무리
         pack();
         setLocationRelativeTo(null);
+    }
+    private void playBackgroundMusic(String filePath) {
+        try {
+            // 오디오 파일 읽기
+            AudioInputStream audioStream = AudioSystem.getAudioInputStream(new File(filePath));
+            backgroundMusic = AudioSystem.getClip();
+            backgroundMusic.open(audioStream);
+
+            // 배경음악 루프 (반복 재생)
+            backgroundMusic.loop(Clip.LOOP_CONTINUOUSLY);
+            backgroundMusic.start();
+
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+            System.err.println("Error loading background music: " + e.getMessage());
+        }
+    }
+
+    // 게임 종료 시 음악 정리
+    private void stopBackgroundMusic() {
+        if (backgroundMusic != null && backgroundMusic.isRunning()) {
+            backgroundMusic.stop();
+            backgroundMusic.close();
+        }
     }
     
     private void setupMainMenu() {
@@ -100,6 +147,7 @@ public class GameStart extends JFrame {
         startButton.addActionListener(e -> {
             CardLayout cl = (CardLayout) mainContainer.getLayout();
             cl.show(mainContainer, "Game"); // 게임 화면으로 전환
+            setupStage(1);
             gameStarted = true;
         });
 
@@ -189,6 +237,7 @@ public class GameStart extends JFrame {
     
     private void updateGame() {
         player.update();
+        items.removeIf(Item::isExpired);
         
         player.updateInvincibility(); //무적 상태 업그레이드
         
@@ -197,17 +246,31 @@ public class GameStart extends JFrame {
             showGameOverDialog();
             return;
         }
-        for(Enemy enemy : enemies) {
-        	if (!player.isInvincible() && player.getBounds().intersects(enemy.getBounds())) {
-        		player.takeDamage(10);
-        		System.out.println("Current HP: " + player.getHp());
-        	}
-        }
-        
-        // 적 업데이트
-        enemies.removeIf(enemy -> !enemy.isAlive());
-        for (Enemy enemy : enemies) {
+     // 적과의 충돌 처리 및 업데이트
+        Iterator<Enemy> iterator = enemies.iterator();
+        while (iterator.hasNext()) {
+            Enemy enemy = iterator.next();
+
+            // 적 업데이트
             enemy.update();
+
+            // 적과의 충돌 처리
+            if (!player.isInvincible() && player.getBounds().intersects(enemy.getBounds())) {
+                if (player.isInhaling()) {
+                    // 흡입 중인 상태에서는 적의 능력을 복사
+                    player.copyAbility(enemy);
+                } else if (!player.isHoldingEnemy()) {
+                    // 흡입 중이 아니고 적을 머금고 있지 않다면 데미지 처리
+                    player.takeDamage(10);
+                    System.out.println("Current HP: " + player.getHp());
+                }
+            }
+
+            // 적 제거 조건 (죽은 적 제거)
+            if (!enemy.isAlive()) {
+                iterator.remove();
+            }
+
             
             // 흡입 체이거나 적을 머금고 있을 때는 데미지를 받지 않음
             if (player.isInhaling() || player.isHoldingEnemy()) {
@@ -219,8 +282,10 @@ public class GameStart extends JFrame {
             }
         }
         for (Item item : items) {
+        	item.update();
         	if (player.getBounds().intersects(item.getBounds())) {
         		item.collect(player);
+        		
         	}
         }
         projectiles.removeIf(p -> {
@@ -244,6 +309,11 @@ public class GameStart extends JFrame {
             }
             return false;
         });
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastItemSpawnTime > ITEM_SPAWN_INTERVAL) {
+            spawnRandomItem(); // 랜덤 아이템 생성
+            lastItemSpawnTime = currentTime; // 마지막 생성 시간 갱신
+        }
         
         
         // 발사체 업데이트
@@ -252,7 +322,10 @@ public class GameStart extends JFrame {
             p.update();
         }
         
+        
         gamePanel.repaint();
+        
+
     }
     private void showGameOverDialog() {
         // 종료 창 생성
@@ -316,7 +389,7 @@ public class GameStart extends JFrame {
         platforms.clear();  
 
         // 다음 스테이지 데이터 설정
-        setupStage(currentStage + 1);  
+        setupStage(currentStage + 1); 
         currentStage++;  
         System.out.println("Proceeding to Stage: " + currentStage);
         
@@ -329,62 +402,129 @@ public class GameStart extends JFrame {
         }
     }
     private void setupStage(int stageNumber) {
-    	
-        switch (stageNumber) {
-            case 1:
-                // 스테이지 1 설정
-                platforms.add(new Platform(300, 500, 200, 20));
-                platforms.add(new Platform(600, 400, 200, 20));
-                enemies.add(new Enemy(400, 300, "FIRE"));
-                enemies.add(new Enemy(700, 200, "ICE"));
-                break;
+        // 이전 데이터 초기화
+        enemies.clear();
+        platforms.clear();
+        items.clear();
 
-            case 2:
-                // 스테이지 2 설정
-                platforms.add(new Platform(200, 450, 250, 20));
-                platforms.add(new Platform(500, 350, 250, 20));
-                platforms.add(new Platform(800, 500, 150, 20));
-                enemies.add(new Enemy(300, 200, "DARK"));
-                enemies.add(new Enemy(700, 150, "ICE", true));
-                enemies.add(new Enemy(900, 300, "FIRE"));
-                items.add(new Item(250, 430, "ENERGY"));
-                break;
+        try {
+            // 스테이지별 이미지 경로 배열 설정
+            String[] imagePaths = getStageBackgroundImages(stageNumber);
+            stagebackgroundImage=BackgroundComposer.composeBackground(imagePaths, true);
 
-            case 3:
-                // 스테이지 3 설정
-                platforms.add(new Platform(150, 500, 150, 20));
-                platforms.add(new Platform(450, 400, 300, 20));
-                enemies.add(new Enemy(300, 200, "FIRE", true));
-                enemies.add(new Enemy(600, 300, "DARK"));
-                items.add(new Item(250, 450, "HEALTH"));
-                break;
-            case 4:
-                // 스테이지 4 설정
-                platforms.add(new Platform(100, 400, 300, 20));
-                platforms.add(new Platform(500, 300, 300, 20));
-                platforms.add(new Platform(900, 500, 200, 20));
-                enemies.add(new Enemy(200, 250, "ICE", true));
-                enemies.add(new Enemy(800, 250, "FIRE"));
-                items.add(new Item(550, 280, "HEALTH"));
-                break;
+            // 스테이지별 적, 플랫폼, 아이템 설정
+            switch (stageNumber) {
+                case 1:
+                    Platform platform1 = new Platform(300, 500, 200, 20);
+                    Platform platform2 = new Platform(600, 400, 200, 20);
+                    platforms.add(platform1);
+                    platforms.add(platform2);
+                    enemies.add(new Enemy(450, 200, "DARK", null));  // DARK는 플랫폼 없이 자유롭게 이동
+                    enemies.add(new Enemy(platform1.getX() + 50, platform1.getY() - 40, "FIRE", platform1));  // FIRE
+                    enemies.add(new Enemy(platform2.getX() + 50, platform2.getY() - 40, "ICE", platform2));  // ICE
+                    break;
 
-            case 5:
-                // 스테이지 5 설정
-                platforms.add(new Platform(250, 450, 200, 20));
-                platforms.add(new Platform(600, 350, 250, 20));
-                platforms.add(new Platform(850, 450, 150, 20));
-                enemies.add(new Enemy(300, 300, "FIRE"));
-                enemies.add(new Enemy(700, 150, "ICE", true));
-                enemies.add(new Enemy(950, 300, "DARK", true));
-                items.add(new Item(650, 330, "ENERGY"));
-                break;
+                case 2:
+                    Platform platform3 = new Platform(200, 450, 250, 20);
+                    Platform platform4 = new Platform(500, 350, 250, 20);
+                    Platform platform5 = new Platform(800, 500, 150, 20);
+                    platforms.add(platform3);
+                    platforms.add(platform4);
+                    platforms.add(platform5);
+                    enemies.add(new Enemy(300, 200, "DARK", null));  // DARK
+                    enemies.add(new Enemy(platform4.getX() + 50, platform4.getY() - 40, "ICE", platform4));  // ICE
+                    enemies.add(new Enemy(platform5.getX() + 50, platform5.getY() - 40, "FIRE", platform5));  // FIRE
+                    items.add(new Item(250, 430, "ENERGY"));
+                    break;
 
-            default:
-                // 마지막 스테이지 클리어
-                showGameClearDialog();  // 게임 클리어 창 표시
-                break;
+                case 3:
+                    Platform platform6 = new Platform(150, 500, 150, 20);
+                    Platform platform7 = new Platform(450, 400, 300, 20);
+                    platforms.add(platform6);
+                    platforms.add(platform7);
+                    enemies.add(new Enemy(400, 250, "DARK", null));  // DARK
+                    enemies.add(new Enemy(platform6.getX() + 50, platform6.getY() - 40, "FIRE", platform6));  // FIRE
+                    items.add(new Item(250, 450, "HEALTH"));
+                    break;
+
+                case 4:
+                    Platform platform8 = new Platform(100, 400, 300, 20);
+                    Platform platform9 = new Platform(500, 300, 300, 20);
+                    Platform platform10 = new Platform(900, 500, 200, 20);
+                    platforms.add(platform8);
+                    platforms.add(platform9);
+                    platforms.add(platform10);
+                    enemies.add(new Enemy(700, 250, "DARK", null));  // DARK
+                    enemies.add(new Enemy(platform9.getX() + 50, platform9.getY() - 40, "ICE", platform9));  // ICE
+                    enemies.add(new Enemy(platform10.getX() + 50, platform10.getY() - 40, "FIRE", platform10));  // FIRE
+                    items.add(new Item(550, 280, "HEALTH"));
+                    break;
+
+                case 5:
+                    Platform platform11 = new Platform(250, 450, 200, 20);
+                    Platform platform12 = new Platform(600, 350, 250, 20);
+                    Platform platform13 = new Platform(850, 450, 150, 20);
+                    platforms.add(platform11);
+                    platforms.add(platform12);
+                    platforms.add(platform13);
+                    enemies.add(new Enemy(950, 300, "DARK", null));  // DARK
+                    enemies.add(new Enemy(platform11.getX() + 50, platform11.getY() - 40, "FIRE", platform11));  // FIRE
+                    enemies.add(new Enemy(platform12.getX() + 50, platform12.getY() - 40, "ICE", platform12));  // ICE
+                    items.add(new Item(650, 330, "ENERGY"));
+                    break;
+
+                default:
+                    // 마지막 스테이지 클리어
+                    showGameClearDialog();
+                    break;
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading background images for stage " + stageNumber + ": " + e.getMessage());
         }
     }
+
+    // 스테이지별 배경 이미지 경로를 반환하는 메서드
+    private String[] getStageBackgroundImages(int stageNumber) {
+        return switch (stageNumber) {
+            case 1 -> new String[]{
+                    "img/stage1/Day/1.png",
+                    "img/stage1/Day/2.png",
+                    "img/stage1/Day/3.png",
+                    "img/stage1/Day/4.png",
+                    "img/stage1/Day/5.png"
+            };
+            case 2 -> new String[]{
+                    "img/stage2/Day/1.png",
+                    "img/stage2/Day/2.png",
+                    "img/stage2/Day/3.png",
+                    "img/stage2/Day/4.png",
+                    "img/stage2/Day/5.png"
+            };
+            case 3 -> new String[]{
+                    "img/stage3/Day/1.png",
+                    "img/stage3/Day/2.png",
+                    "img/stage3/Day/3.png",
+                    "img/stage3/Day/4.png",
+                    "img/stage3/Day/5.png"
+            };
+            case 4 -> new String[]{
+                    "img/stage4/Day/1.png",
+                    "img/stage4/Day/2.png",
+                    "img/stage4/Day/3.png",
+                    "img/stage4/Day/4.png",
+                    "img/stage4/Day/5.png"
+            };
+            case 5 -> new String[]{
+                    "img/stage5/Day/1.png",
+                    "img/stage5/Day/2.png",
+                    "img/stage5/Day/3.png",
+                    "img/stage5/Day/4.png",
+                    "img/stage5/Day/5.png"
+            };
+            default -> new String[0];
+        };
+    }
+
     private void showGameClearDialog() {
         JFrame gameClearFrame = new JFrame("Game Clear!");
         gameClearFrame.setSize(400, 300);
@@ -428,6 +568,11 @@ public class GameStart extends JFrame {
     public static void addProjectile(Projectile p) {
     	projectiles.add(p);
     }
+    private void spawnRandomItem() {
+        Item newItem = Item.spawnRandomItem(); // 랜덤 아이템 생성
+        items.add(newItem); // 생성된 아이템을 아이템 리스트에 추가
+    }
+
 
 
     
@@ -441,15 +586,20 @@ public class GameStart extends JFrame {
     }
     
     class GamePanel extends JPanel {
+    	    	
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             // 배경 그리기
+            if (stagebackgroundImage != null) {
+                g.drawImage(stagebackgroundImage, 0, 0, getWidth(), getHeight(), null);
+            } else {
+            	
             g.setColor(new Color(135, 206, 235));  // 하늘색 배경
             g.fillRect(0, 0, getWidth(), getHeight());
-            
+            }
             // 바닥 그리기
-            g.setColor(Color.GREEN);
+            g.setColor(Color.BLACK);
             g.fillRect(0, 600, getWidth(), 200);
             
             // 플레이어 그리기
